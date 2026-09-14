@@ -1,0 +1,6 @@
+miniF2F/.lake/
+repl_minif2f/.lake/
+lean_playground/
+.DS_Store
+__pycache__/
+*.pyc
