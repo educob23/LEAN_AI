@@ -1,5 +1,6 @@
 import subprocess
 import json
+import parser
 
 
 class LEANRepl :
@@ -47,13 +48,26 @@ class LEANRepl :
         
 
 
-    def import_project(self):
+    def import_project(self, imports, opens):
         """
-            Imports MiniF2F.ProblemImports, needed for every proof and saves time by doing it just once
+            Imports all the needed imports, needed for every proof and saves time by doing it just once
+            params :
+              imports : a tab with all the files to import
+              opens : a dic with all the things to open in label and 0 if not scopped 1 if yes 
         """
-        response = self.send(json.dumps({"cmd": "import MiniF2F.ProblemImports\n"}) + "\n\n")
+        json_txt = ""
+        for imp in imports :
+            json_txt = json_txt + "import " + imp + "\n"
+        for open in opens :
+            if opens[open] :
+                json_txt = json_txt + "open " + "scoped " + open + "\n"
+            else:
+                json_txt = json_txt + "open " + open + "\n"
+
+        response = self.send(json.dumps({"cmd": json_txt})+ "\n\n")
         self.base_env = response["env"]
         return response
+
 
     def close(self):
         """
@@ -76,7 +90,7 @@ class LEANRepl :
                 1 if the proof is correct, 0 if it uses sorry, -1 if there's an error
         """
 
-        ########what if there's warnings like unused variable but the prrof is correct? To check
+        ######## what if there's warnings like unused variable but the prrof is correct? To check
         if("messages" not in answer and "sorries" not in answer):
             return 1
         if("messages" in answer):
@@ -92,9 +106,56 @@ class LEANRepl :
         raise RuntimeError(f"No case for {answer}")
 
 if __name__ == "__main__":
-    Repl = LEANRepl()
-    Repl.import_project()
 
+    path_to_Valid = "/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Valid.lean"
+    path_to_Valid_parsed = "/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Valid_parser.lean"
+
+    path_to_Test = "/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Test.lean"
+    path_to_Test_parsed = "/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Test_parser.lean"
+
+    ##extraction from files
+    parser.drop_comments(path_to_Valid, "Valid")
+    imports_Valid, opens_Valid = parser.treat_header(path_to_Valid_parsed)
+    theorems_Valid = parser.extract_theorems(path_to_Valid_parsed)
+
+    parser.drop_comments(path_to_Test, "Test")
+    imports_Test, opens_Test = parser.treat_header(path_to_Test_parsed)
+    theorems_Test = parser.extract_theorems(path_to_Test_parsed)
+
+    #creation of REPL_Valid
+    Repl_Valid = LEANRepl()
+    Repl_Valid.import_project(imports_Valid, opens_Valid)
+
+    #creation of REPL_Test
+    Repl_Test = LEANRepl()
+    Repl_Test.import_project(imports_Test, opens_Test)
+
+    #check of one of the theorems from valid
+    answer1 = Repl_Valid.write_proof(theorems_Valid['amc12a_2019_p21'])
+    check1 = Repl_Valid.check(answer1)
+
+    if(check1 != 0):
+        print(" Error in the Validation Thm!!")
+    else:
+        print("runned correctly")
+
+    #check of one of the theorems from Test
+    answer2 = Repl_Test.write_proof(theorems_Test['mathd_algebra_478'])
+    check2 = Repl_Test.check(answer2)
+
+    if(check2 != 0):
+        print(" Error in the Validation Thm!!")
+    else:
+        print("runned correctly")
+
+
+    Repl_Valid.close()
+    Repl_Test.close()
+    
+"""
+    ## first tests to check wrapper.py
+    Repl = LEANRepl()
+    Repl.import_project([], {})
     cmd1 = "example : (2:ℕ) + 2 = 4 := by rfl"
     answer1 = Repl.write_proof(cmd1)
     check1 = Repl.check(answer1)
@@ -119,4 +180,4 @@ if __name__ == "__main__":
         if(check3 != 0):
             print("there's still sorries in the proof")
     Repl.close()
-
+"""
