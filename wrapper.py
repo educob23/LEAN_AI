@@ -1,6 +1,8 @@
 import subprocess
 import json
 import parser
+import threading
+import queue
 
 
 class LEANRepl :
@@ -9,21 +11,19 @@ class LEANRepl :
         """ 
             Starts the LEANRepfl as a subprocess. Once import_project is called proofs can be verified on the subprocess
         """
-        self.proc = subprocess.Popen(["lake", "env", "../repl_minif2f/.lake/build/bin/repl"],
-                        cwd="/Users/eduardo/Desktop/LEAN_AI/miniF2F", stdin=subprocess.PIPE, stdout=subprocess.PIPE, text = True)
+        self._imports = None
+        self._opens = None
+        self.restart_count = 0
+        self._start_process()
         self.base_env = None
 
-    def send(self, message):
-        """
-            writes the message inside the LEAN environement and returns the LEAN evaluation
-            - Used only for import_project and auxiliar function in write_proof -
-            - writes the message like it is, no json dumps inside -
-        """
-        #writing of the message
-        self.proc.stdin.write(message)
-        self.proc.stdin.flush()
+    def _start_process(self):
+        """ (re)spawns the REPL subprocess, used by __init__ and by a timeout restart """
+        self.proc = subprocess.Popen(["lake", "env", "../repl_minif2f/.lake/build/bin/repl"],
+            cwd="/Users/eduardo/Desktop/LEAN_AI/miniF2F", stdin=subprocess.PIPE, stdout=subprocess.PIPE, text = True)
 
-        # reading of LEAN answer
+    def _read_response(self):
+        """  """
         lines = []
         line = self.proc.stdout.readline()
         while(line != "\n") :
@@ -33,6 +33,44 @@ class LEANRepl :
             lines.append(line)  # the JSON response
             line = self.proc.stdout.readline()
         return json.loads("".join(lines))
+
+
+
+            
+    def send(self, message, timeout=120):
+        #writing of the message
+        self.proc.stdin.write(message)
+        self.proc.stdin.flush()
+
+        q = queue.Queue()
+        def _worker():
+            try:
+                q.put(("ok", self._read_response()))
+            except Exception as e:
+                q.put(("error", e))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+        try:
+            status, result = q.get(timeout=timeout)
+        except queue.Empty:
+            self._restart()
+            return {"timeout": True}
+
+        if status == "error":
+            raise result
+        return result
+
+    def _restart(self):
+        """  """
+        self.restart_count += 1
+        try:
+            self.proc.kill()
+        except Exception:
+            pass
+        self._start_process()
+        if self._imports is not None:
+            self.import_project(self._imports, self._opens)
 
 
     def write_proof(self, cmd):
@@ -47,7 +85,6 @@ class LEANRepl :
         return self.send(json.dumps({"cmd": cmd, "env": self.base_env}) + "\n\n")
         
 
-
     def import_project(self, imports, opens):
         """
             Imports all the needed imports, needed for every proof and saves time by doing it just once
@@ -55,6 +92,9 @@ class LEANRepl :
               imports : a tab with all the files to import
               opens : a dic with all the things to open in label and 0 if not scopped 1 if yes 
         """
+        self._imports = imports
+        self._opens = opens
+        
         json_txt = ""
         for imp in imports :
             json_txt = json_txt + "import " + imp + "\n"
@@ -89,6 +129,12 @@ class LEANRepl :
             returns:
                 1 if the proof is correct, 0 if it uses sorry, -1 if there's an error
         """
+        if answer.get("timeout"):
+            return "timeout"
+        
+        if "env" not in answer:
+        # a normal response always has an "env" id - if it's missing, something went bad
+            return "harness_error"
 
         ######## what if there's warnings like unused variable but the prrof is correct? To check
         if("messages" not in answer and "sorries" not in answer):
