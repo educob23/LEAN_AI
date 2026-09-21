@@ -68,7 +68,17 @@ def attempt(messages, template, Repl, model, tokenizer, enable_thinking, max_tok
     bounded_check_cmd = f"set_option maxHeartbeats 400000 in\n{check_cmd}"
     full_cmd = bounded_proof + "\n\n" + bounded_check_cmd
 
-    answer = Repl.write_proof(full_cmd)
+    try:
+        answer = Repl.write_proof(full_cmd)
+    except RuntimeError as e:
+        # wrapper.py gave up: max_consecutive_timeouts exceeded, meaning the
+        # environment reload itself is stuck/broken, not just one bad proof.
+        # Get a clean REPL ready for whatever comes next, and abandon this
+        # theorem rather than retrying against what was just broken.
+        if verbose:
+            print(f"REPL gave up on this theorem: {e}")
+        Repl.force_restart()
+        return "repl_gave_up", proof, raw_text, {"error": str(e)}
 
     if verbose:
         print(answer)
@@ -136,6 +146,11 @@ def loop(thm, Repl, model, tokenizer, enable_thinking, max_tokens = 12000, verbo
         if check == 1:
             # proof is correct!
             return check, proof
+        
+        if check == "repl_gave_up":
+            # Already restarted inside attempt(); don't keep retrying against
+            # what was just a broken environment -- give up on this theorem only.
+            return check, proof
 
         # we give the model it's previous thougth process
         messages.append({"role": "assistant", "content": raw_text})
@@ -180,6 +195,8 @@ def loop(thm, Repl, model, tokenizer, enable_thinking, max_tokens = 12000, verbo
         messages.append({"role": "user", "content": follow_up})
         check, proof, raw_text, answer = full_attempt(messages, thm, thm_name, Repl, model, tokenizer, enable_thinking, max_tokens, verbose, attempt_idx, logfile)
         attempt_idx += 1
+
+    return "timed_out", proof
 
 
 

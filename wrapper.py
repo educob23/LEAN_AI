@@ -7,13 +7,21 @@ import queue
 
 class LEANRepl :
 
-    def __init__(self) :
-        """ 
+    def __init__(self, max_consecutive_timeouts=5) :
+        """
             Starts the LEANRepfl as a subprocess. Once import_project is called proofs can be verified on the subprocess
+            params :
+                max_consecutive_timeouts : give up (raise) instead of restarting again if this
+                    many send() calls in a row fail without a single successful one in between.
+                    Resets to 0 on every successful send(), so ordinary timeouts spread out
+                    across a long run don't add up to a false "give up" -- only a cascade of
+                    back-to-back failures (e.g. the environment reload itself stuck/broken) does.
         """
         self._imports = None
         self._opens = None
         self.restart_count = 0
+        self._consecutive_timeouts = 0
+        self.max_consecutive_timeouts = max_consecutive_timeouts
         self._start_process()
         self.base_env = None
 
@@ -21,6 +29,18 @@ class LEANRepl :
         """ (re)spawns the REPL subprocess, used by __init__ and by a timeout restart """
         self.proc = subprocess.Popen(["lake", "env", "../repl_minif2f/.lake/build/bin/repl"],
             cwd="/Users/eduardo/Desktop/LEAN_AI/miniF2F", stdin=subprocess.PIPE, stdout=subprocess.PIPE, text = True)
+
+    def force_restart(self):
+        """
+            Recovers after send() has given up (raised RuntimeError because
+            max_consecutive_timeouts was exceeded). Unlike _restart(), this resets
+            the failure counter first -- otherwise the very next send() call would
+            immediately see _consecutive_timeouts > max_consecutive_timeouts again
+            and raise right away, without ever actually getting to restart.
+            Call this after catching that RuntimeError, before moving on.
+        """
+        self._consecutive_timeouts = 0
+        self._restart()
 
     def _read_response(self):
         """  """
@@ -39,8 +59,13 @@ class LEANRepl :
             
     def send(self, message, timeout=120):
         #writing of the message
-        self.proc.stdin.write(message)
-        self.proc.stdin.flush()
+        try:
+            self.proc.stdin.write(message)
+            self.proc.stdin.flush()
+        except (BrokenPipeError, OSError):
+            # process was already dead before we even tried to talk to it
+            self._note_failure_and_maybe_restart()
+            return {"timeout": True}
 
         q = queue.Queue()
         def _worker():
@@ -54,12 +79,32 @@ class LEANRepl :
         try:
             status, result = q.get(timeout=timeout)
         except queue.Empty:
-            self._restart()
+            self._note_failure_and_maybe_restart()
             return {"timeout": True}
 
         if status == "error":
             raise result
+        self._consecutive_timeouts = 0  # this call worked -- any past failures were transient
         return result
+
+    def _note_failure_and_maybe_restart(self):
+        """
+            Shared by both send() failure paths (dead-on-write and read-timeout).
+            Bumps the consecutive-failure counter and gives up with a clear error
+            once it crosses max_consecutive_timeouts, instead of letting a
+            persistently broken environment (not just one slow proof) restart
+            itself forever -- _restart() replays import_project on failure, which
+            calls send() again, which can itself fail and call _restart() again.
+        """
+        self._consecutive_timeouts += 1
+        if self._consecutive_timeouts > self.max_consecutive_timeouts:
+            raise RuntimeError(
+                f"Lean REPL failed {self._consecutive_timeouts} times in a row "
+                f"(max_consecutive_timeouts={self.max_consecutive_timeouts}) -- "
+                f"giving up instead of restarting forever. This means the "
+                f"environment reload itself is stuck/broken, not just one bad proof."
+            )
+        self._restart()
 
     def _restart(self):
         """  """
@@ -105,6 +150,12 @@ class LEANRepl :
                 json_txt = json_txt + "open " + open + "\n"
 
         response = self.send(json.dumps({"cmd": json_txt})+ "\n\n")
+        if response.get("timeout"):
+            # send() already restarted the process on this timeout, which (since
+            # self._imports/self._opens are already set above) replayed
+            # import_project itself and set self.base_env correctly through that
+            # nested call. Nothing left to do here -- and no "env" key to index.
+            return response
         self.base_env = response["env"]
         return response
 
