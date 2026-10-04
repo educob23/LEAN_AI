@@ -1,0 +1,5 @@
+# Runtime (macOS on Apple Silicon -- MLX has no CUDA backend)
+mlx-lm            # Qwen3-8B (4-bit) inference via MLX; downloads mlx-community/Qwen3-8B-4bit on first use
+
+# Development
+pytest
