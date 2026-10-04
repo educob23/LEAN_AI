@@ -10,8 +10,9 @@ from retry_loop import loop
 from mlx_lm import load
 
 
-PATH_TO_VALID = "/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Valid.lean"
-PATH_TO_VALID_PARSED = "/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Valid_parser.lean"
+ROOT = Path(__file__).resolve().parent
+PATH_TO_VALID = str(ROOT / "miniF2F/MiniF2F/Valid.lean")
+PATH_TO_VALID_PARSED = str(ROOT / "miniF2F/MiniF2F/Valid_parser.lean")
 
 
 def load_done(results_path):

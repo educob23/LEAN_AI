@@ -3,6 +3,10 @@ import json
 import parser
 import threading
 import queue
+from pathlib import Path
+
+# repository root (the folder containing this file) -- keeps every path relative to the clone
+ROOT = Path(__file__).resolve().parent
 
 
 class LEANRepl :
@@ -28,7 +32,7 @@ class LEANRepl :
     def _start_process(self):
         """ (re)spawns the REPL subprocess, used by __init__ and by a timeout restart """
         self.proc = subprocess.Popen(["lake", "env", "../repl_minif2f/.lake/build/bin/repl"],
-            cwd="/Users/eduardo/Desktop/LEAN_AI/miniF2F", stdin=subprocess.PIPE, stdout=subprocess.PIPE, text = True)
+            cwd=ROOT / "miniF2F", stdin=subprocess.PIPE, stdout=subprocess.PIPE, text = True)
 
     def force_restart(self):
         """
@@ -204,11 +208,11 @@ class LEANRepl :
 
 if __name__ == "__main__":
 
-    path_to_Valid = "/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Valid.lean"
-    path_to_Valid_parsed = "/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Valid_parser.lean"
+    path_to_Valid = str(ROOT / "miniF2F/MiniF2F/Valid.lean")
+    path_to_Valid_parsed = str(ROOT / "miniF2F/MiniF2F/Valid_parser.lean")
 
-    path_to_Test = "/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Test.lean"
-    path_to_Test_parsed = "/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Test_parser.lean"
+    path_to_Test = str(ROOT / "miniF2F/MiniF2F/Test.lean")
+    path_to_Test_parsed = str(ROOT / "miniF2F/MiniF2F/Test_parser.lean")
 
     ##extraction from files
     parser.drop_comments(path_to_Valid, "Valid")

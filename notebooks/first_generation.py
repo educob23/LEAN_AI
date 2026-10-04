@@ -1,9 +1,15 @@
+# Very first generation test (2026-09). Run from the repository root:
+#   python notebooks/first_generation.py
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import parser
 from mlx_lm import load, generate
 
 model, tokenizer = load("mlx-community/Qwen3-8B-4bit")
 
-theorems = parser.extract_theorems("/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Valid_parser.lean")
+theorems = parser.extract_theorems(str(Path(__file__).resolve().parents[1] / "miniF2F/MiniF2F/Valid_parser.lean"))
 template = theorems["amc12a_2019_p21"]  # reusing the one you already confirmed works against the real REPL
 
 instruction = (

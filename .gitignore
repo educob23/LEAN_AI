@@ -1,6 +1,22 @@
+# Lean build artifacts (inside the submodules)
 miniF2F/.lake/
 repl_minif2f/.lake/
-lean_playground/
-.DS_Store
+
+# Python
 __pycache__/
 *.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+
+# OS / editors
+.DS_Store
+.vscode/
+
+# Old local sandbox
+lean_playground/
+
+# Live run outputs written by run_batch.py at the repo root.
+# Finished runs are archived under results/<run-name>/ (see results/README.md).
+/*.jsonl
+/run_log*.txt

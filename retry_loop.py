@@ -201,8 +201,8 @@ def loop(thm, Repl, model, tokenizer, enable_thinking, max_tokens = 12000, verbo
 
 
 if __name__ == "__main__":
-    path_to_Valid = "/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Valid.lean"
-    path_to_Valid_parsed = "/Users/eduardo/Desktop/LEAN_AI/miniF2F/MiniF2F/Valid_parser.lean"
+    path_to_Valid = str(wrapper.ROOT / "miniF2F/MiniF2F/Valid.lean")
+    path_to_Valid_parsed = str(wrapper.ROOT / "miniF2F/MiniF2F/Valid_parser.lean")
 
     parser.drop_comments(path_to_Valid, "Valid")
     imports, opens = parser.treat_header(path_to_Valid_parsed)
