@@ -12,6 +12,11 @@ __pycache__/
 # OS / editors
 .DS_Store
 .vscode/
+.idea/
+*.swp
+
+# Secrets
+.env
 
 # Old local sandbox
 lean_playground/
@@ -20,3 +25,11 @@ lean_playground/
 # Finished runs are archived under results/<run-name>/ (see results/README.md).
 /*.jsonl
 /run_log*.txt
+
+# Model weights and training outputs (fine-tuning phase).
+# mlx-lm writes LoRA adapters to adapters/ by default; never commit weights.
+adapters/
+checkpoints/
+*.safetensors
+*.gguf
+*.npz
