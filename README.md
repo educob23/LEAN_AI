@@ -197,9 +197,7 @@ pytest -q tests                                                         # offlin
 
 ## Use of AI
 
-This project is also how I learned its tools. It is my first time working with Lean 4,
-Mathlib, MLX and LLMs running locally. I learned them from scratch with documentation,
-papers, forums, and Claude (Anthropic) as a tutor.
+This project is also how I learned its tools. It is my first time working with Mathlib, MLX and LLMs running locally. I learned them from scratch with documentation, forums, and Claude (Anthropic) as a tutor.
 
 **The rule I set myself: I write the core code by hand.** That covers the problem parser,
 the Lean interface, the generate → verify → retry loop and the prompts, which are the parts
@@ -212,9 +210,6 @@ Where AI added the most value:
   than confirm it. It found two ways the score could be inflated: a model proving an easier
   statement under the right name, and harness failures counted as passes. I fixed both; see
   the [design review](docs/design_review_2026_09_20.md).
-- **Delegated tooling**, so that my time goes to the core. Claude wrote the code around the
-  pipeline: the unattended batch runner and the Lean crash recovery, the test suite and CI,
-  and the result-analysis script.
 - **This README** was structured with Claude's help, so the project stays readable while it
   is still in progress.
 
