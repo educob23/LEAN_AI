@@ -177,7 +177,7 @@ decisions, is in **[ROADMAP.md](ROADMAP.md)**. In short:
 ├── tests/                 offline unit tests (no Lean or model needed), run in CI
 ├── results/               archived runs: per-theorem results, per-attempt logs, summaries
 ├── data/                  dev_subset_25.json, a hand-picked set for quick iteration
-├── docs/                  design notes, adversarial design review, roadmap, changelog
+├── docs/                  adversarial design review, initial setup research
 ├── notebooks/             exploration and one-off validation experiments
 ├── miniF2F/               submodule: google-deepmind/miniF2F (problems, Lean project)
 └── repl_minif2f/          submodule: leanprover-community/repl, pinned to Lean v4.27.0
