@@ -1,57 +1,60 @@
-# LEAN_AI — formally verified theorem proving with an open-weight LLM
+# LEAN_AI: training a small LLM to write machine-checked math proofs
 
 [![tests](https://github.com/educob23/LEAN_AI/actions/workflows/tests.yml/badge.svg)](https://github.com/educob23/LEAN_AI/actions/workflows/tests.yml)
-![Lean](https://img.shields.io/badge/Lean-4.27.0-blue)
-![Model](https://img.shields.io/badge/model-Qwen3--8B%20(4--bit%2C%20MLX)-purple)
-![License](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/status-active%20%C2%B7%20phase%201-brightgreen)
+![Lean](https://img.shields.io/badge/Lean-4.27-blue)
+![model](https://img.shields.io/badge/model-Qwen3--8B-purple)
 
-An LLM writes Lean 4 proofs of competition-math problems, and the Lean compiler checks
-them. Every result reported here is **machine-checked**: a proof counts only if Lean
-accepts it against the original problem statement.
+LLMs write math that *looks* right. In **Lean 4**, a proof is a program, and the compiler
+accepts it only if every step is correct. That gives an objective pass/fail signal, which
+makes it possible both to **measure** a model honestly and to **train** it.
 
-The goal is to **specialize a small open-weight model for formal proving**, in three steps:
-supervised fine-tuning, then expert iteration, then reinforcement learning with Lean as the
-reward. All of it runs on one laptop (Apple M1 Max, 32 GB). The headline result will be an
-honest *before vs. after training* comparison on the same model and the same protocol.
+This project builds that loop end to end on a single laptop (Apple M1 Max) and uses it to
+specialize an open-weight model, `Qwen3-8B`, for formal proving. The plan is supervised
+fine-tuning, then expert iteration, then reinforcement learning with Lean as the reward.
 
-## Where the project stands
+**Where it stands (Oct 2026):** the pipeline is complete, and the zero-shot baseline is
+measured: **17 of the 256 problems in the miniF2F-valid benchmark are solved, every proof
+verified by Lean**. That is the "before" number. Next comes the first fine-tune, evaluated
+with exactly the same protocol. → [ROADMAP.md](ROADMAP.md)
 
-![status](https://img.shields.io/badge/status-active%20development-brightgreen)
-![phase](https://img.shields.io/badge/current%20phase-1%3A%20fine--tune%20prep-blue)
-![updated](https://img.shields.io/badge/last%20update-2026--10--05-lightgrey)
+---
 
-This is an active, ongoing project that follows a written plan, [ROADMAP.md](ROADMAP.md).
-The table below and the timeline are updated at every milestone.
+## Highlights
 
-| Phase | Goal | Status |
-|---|---|---|
-| **0 · Infrastructure** | Lean + Mathlib toolchain, REPL interface, parser, generate → verify → retry pipeline, sound evaluation | ✅ done (Aug–Sep 2026) |
-| **1 · Baseline + first fine-tune** | Measure Qwen3-8B zero-shot, then LoRA fine-tune and measure again with the same protocol | 🔄 **in progress**: zero-shot baseline done (**17/256**), preparing the fine-tune |
-| **2 · Expert iteration** | Retrain on the model's own Lean-verified proofs, round after round | ⏳ planned |
-| **3 · Reinforcement learning** | GRPO with Lean pass/fail as the reward | ⏳ stretch goal |
+- **End-to-end proving pipeline:** problem parser → LLM generation → Lean verification →
+  retries driven by Lean's error messages. Python, MLX and the Lean REPL.
+- **Evaluation that can't be gamed.** Each candidate is checked against a trusted copy of
+  the theorem statement, so the model cannot score by proving an easier statement under the
+  right name. Harness failures and `sorry` placeholders are never counted as passes.
+- **Built for long unattended runs:** timeouts, automatic Lean restarts, resumable
+  batches, and a log of every attempt. The baseline is ~22 h of unattended compute.
+- **Measured, not guessed.** 2,656 logged attempts were analysed to see *why* the model
+  fails, and the analysis shapes the training data for the next phase.
+- **Tested:** an offline test suite of parser edge cases, proof extraction and the
+  soundness checks, run by GitHub Actions on every push.
 
-**Just done:** zero-shot baseline of `Qwen3-8B` on all 256 miniF2F-valid problems:
-**17 Lean-verified proofs (6.6 %)**.<br/>
-**Next:** fix the evaluation protocol for the before/after comparison (pass@k, fixed seed),
-take a one-time score on miniF2F-test, build the fine-tuning dataset, then the first LoRA
-fine-tune.
+**Stack:** Python · Lean 4 / Mathlib · MLX & `mlx-lm` (LoRA) · Qwen3-8B · pytest · GitHub Actions
 
-<details>
-<summary><b>Project timeline</b></summary>
+---
 
-| Date | Milestone |
-|---|---|
-| 2026-08-25 | Scoping: Lean REPL chosen as the verifier and the DeepMind miniF2F fork as the benchmark. Direction set: specialize an open-weight model, not just prompt one |
-| 2026-08-28 | Lean 4 + Mathlib toolchain and REPL built; Python ↔ Lean REPL interface working; 25-problem dev subset chosen |
-| 2026-09-14 → 17 | miniF2F problem parser, checked on all 500 valid and test problems |
-| 2026-09-17 | First proofs generated by Qwen3-8B (MLX, 4-bit) and checked by Lean |
-| 2026-09-20 | Adversarial design review of the evaluation; soundness fixes (identity check, harness errors) |
-| 2026-09-21 | Retry loop with Lean error feedback; crash recovery; unattended batch runner; first 25-problem run |
-| 2026-10-03 | End-to-end smoke test of the hardened pipeline |
-| 2026-10-04 | **Full zero-shot baseline launched** on miniF2F-valid (256 problems) |
-| 2026-10-05 | **Baseline complete: 17/256 solved (6.6 %)** after ~22 h of compute and 2,656 model attempts. The failure analysis (Lean 3 syntax, made-up lemma names) feeds the fine-tuning plan |
+## An example
 
-</details>
+`algebra_sqineq_4bap1lt4bsqpap1sq` from miniF2F, solved on the 4th attempt after Lean's
+error messages were fed back to the model. The model's proof, accepted by Lean (comments
+removed):
+
+```lean
+theorem algebra_sqineq_4bap1lt4bsqpap1sq (a b : ℝ) : 4 * b * (a + 1) ≤ 4 * b ^ 2 + (a + 1) ^ 2 := by
+  have : 4 * b * (a + 1) - 4 * b ^ 2 - (a + 1) ^ 2 = -(4 * b^2 - 4*b*(a+1) + (a+1)^2) := by
+    ring
+  have : 4 * b ^ 2 - 4 * b * (a + 1) + (a + 1) ^ 2 = (2 * b - (a + 1)) ^ 2 := by
+    ring
+  nlinarith [this]
+```
+
+The idea is to complete the square: the right-hand side minus the left-hand side equals
+(2b − (a+1))², which is ≥ 0.
 
 ---
 
@@ -59,188 +62,151 @@ fine-tune.
 
 ```mermaid
 flowchart LR
-    A["miniF2F .lean file"] -->|parser.py| B["Theorem statement<br/>(proof = sorry)"]
-    B --> C["Prompt<br/>DeepSeek-Prover style"]
-    C --> D["Qwen3-8B<br/>MLX, 4-bit"]
-    D -->|"last lean4 code block"| E["Candidate proof"]
-    E --> F["Lean REPL + Mathlib<br/>proof + identity check"]
-    F -->|accepted| G["✅ Verified proof<br/>logged"]
-    F -->|"error / sorry / no answer"| H["Feedback message<br/>with Lean's errors"]
-    H -->|"retry until time budget"| D
+    A["miniF2F problem<br/>(.lean)"] --> B["Prompt"]
+    B --> C["Qwen3-8B<br/>(MLX, 4-bit)"]
+    C --> D["Candidate proof"]
+    D --> E["Lean 4 + Mathlib<br/>proof + identity check"]
+    E -->|accepted| F["✅ Verified proof, logged"]
+    E -->|rejected| G["Lean's error messages"]
+    G -->|retry| C
 ```
 
-| Component | File | What it does |
-|---|---|---|
-| Problem parser | [`parser.py`](parser.py) | Removes comments, reads the header (`import` / `open scoped`), splits the file into `{name: statement}`. Handles the edge cases found in the real files (dotted names, multi-paragraph docstrings, entries without `sorry`). Checked on all 256 valid and 244 test problems. |
-| Lean interface | [`wrapper.py`](wrapper.py) | Runs [leanprover-community/repl](https://github.com/leanprover-community/repl) as a subprocess over JSON. Mathlib is imported **once** per process (~20 s) and every check reuses that environment instead of re-elaborating it. Includes timeouts, crash detection and automatic restart. |
-| Generate / verify / retry | [`retry_loop.py`](retry_loop.py) | `attempt()` makes one generation and one Lean check. `loop()` keeps a multi-turn conversation going: on failure, Lean's actual error messages go back to the model. |
-| Batch runner | [`run_batch.py`](run_batch.py) | Runs a whole split unattended. It can resume after an interruption, a failure on one theorem never stops the run, and every attempt is logged to JSONL. |
-| Analysis | [`scripts/summarize_results.py`](scripts/summarize_results.py) | Turns a run's logs into the tables in [`results/`](results/). |
+| File | Role |
+|---|---|
+| [`parser.py`](parser.py) | Splits miniF2F's `.lean` files into individual problems (500/500 parsed correctly). |
+| [`wrapper.py`](wrapper.py) | Talks to Lean through the [REPL](https://github.com/leanprover-community/repl). Mathlib is loaded once and reused for every check. Handles timeouts, crashes and restarts. |
+| [`retry_loop.py`](retry_loop.py) | One generate → verify step (`attempt`) and the multi-turn retry loop with Lean feedback (`loop`). |
+| [`run_batch.py`](run_batch.py) | Unattended, resumable runs over a whole benchmark split. |
+| [`scripts/summarize_results.py`](scripts/summarize_results.py) | Turns run logs into the result tables. |
 
-### Design points that matter for correctness
+<details>
+<summary><b>Design decisions that keep the numbers honest</b></summary>
 
-- **Identity check against the trusted statement.** A model can "succeed" by proving an
-  easier statement under the right name, for example `theorem <name> : True := trivial`.
-  So each candidate is sent together with an `example` built from the *parser's* copy of
-  the statement (never the model's), closed by `apply <name> <;> assumption`. If the model
-  changed the statement, this check fails.
-  (`exact <name>` would be the obvious choice, but it rejects correct proofs of any theorem
-  with explicit parameters. Testing caught this.)
-- **Harness errors are never counted as passes.** A REPL-level failure (no `env` in the
-  response) is reported as its own outcome. An earlier version scored these as successes.
-- **`sorry` and errors are checked separately.** A response with no errors that still
-  contains `sorry` is not a proof.
-- **Sampling, not greedy decoding.** The sampler uses Qwen's recommended settings. Greedy
-  decoding was the measured cause of the degenerate repetition seen in early tests.
-- **Every attempt is logged** with the raw model output, the extracted proof, Lean's
-  response and the timing. The verified proofs from this baseline become the seed data for
-  expert iteration.
+- **Identity check.** The model's proof is sent together with an `example` built from the
+  parser's copy of the statement and closed by `apply <name> <;> assumption`. If the model
+  changed the statement, Lean rejects it. (`exact <name>` would look like the obvious
+  choice, but it rejects correct proofs of theorems with explicit parameters. Testing caught
+  this.)
+- **Harness errors are their own outcome.** A Lean REPL failure is never scored as a pass.
+  An early version did score it as a pass, and an adversarial
+  [design review](docs/design_review_2026_09_20.md) of the pipeline found it.
+- **Sampling, not greedy decoding.** The model uses Qwen's recommended sampler. Greedy
+  decoding caused the endless repetition seen in early tests.
+- **A clean test split.** miniF2F-test is touched once before training and once for the
+  final evaluation. All development happens on miniF2F-valid.
+
+</details>
 
 ---
 
-## Results
+## Results: zero-shot baseline
 
-### Zero-shot baseline: Qwen3-8B on miniF2F-valid (256 problems)
+`Qwen3-8B` (4-bit, non-thinking mode), 256 miniF2F-valid problems, 300 s per problem,
+retries with Lean feedback.
 
-Setup: `mlx-community/Qwen3-8B-4bit`, non-thinking mode, up to 5,000 tokens per attempt,
-**300 s of wall-clock budget per theorem**, with retries that feed back Lean's errors.
-Problems: the [google-deepmind/miniF2F](https://github.com/google-deepmind/miniF2F) Lean 4
-statements (toolchain `v4.27.0`).
-
-| | Value |
+| | |
 |---|---|
-| **Solved, Lean-verified** | **17 / 256 (6.6 %)** |
-| Solved on the first attempt (pass@1) | 9 / 256 (3.5 %) |
-| Solved only thanks to error-feedback retries | 8 |
-| Model attempts made | 2,656 (median 10 per problem) |
-| Compute | ~22 h on one M1 Max |
+| **Solved (Lean-verified)** | **17 / 256 (6.6 %)** |
+| Solved on the first attempt | 9 (3.5 %) |
+| Extra problems solved thanks to Lean-feedback retries | +8 |
+| MATH-level algebra / number theory | 8.5 % / 10.4 % |
+| AMC 12 / AIME / IMO | 2.0 % / 0 % / 0 % |
 
-| Problem source | Solved |
-|---|---|
-| MATH, algebra | 6 / 71 (8.5 %) |
-| MATH, number theory | 7 / 67 (10.4 %) |
-| AMC 12 | 1 / 49 (2.0 %) |
-| AIME | 0 / 15 |
-| IMO | 0 / 20 |
-| Custom (algebra / number theory / induction) | 3 / 34 (8.8 %) |
+**What the logs say, and why it matters for training:**
 
-Outcome of each attempt, error analysis and the list of solved problems:
-[`results/2026-10-04_baseline_qwen3-8b_valid_300s/SUMMARY.md`](results/2026-10-04_baseline_qwen3-8b_valid_300s/SUMMARY.md).
+1. **Lean's feedback almost doubles the score** (9 → 17 solved), so the retry loop works.
+2. **The model knows the format but not the library.** Less than 1 % of answers are
+   malformed. But 11 % of proofs use outdated Lean 3 syntax, and 35 % of rejected attempts
+   call Mathlib lemmas that don't exist.
+3. **So the first fine-tune targets that gap**, with up-to-date Lean 4 / Mathlib proofs
+   rather than more prompting.
 
-**What the logs show.**
-
-- Lean rejects 98 % of attempts, but the model almost always produces a complete,
-  well-formed answer: fewer than 1 % of attempts have no extractable proof. The problem is
-  proof *quality*, not output format.
-- About half of the rejected attempts contain a syntax error. 11 % of all extracted proofs
-  use **Lean 3 idioms** (`begin … end`, `∑ x in s`), which current Lean 4 / Mathlib rejects.
-  35 % of rejected attempts call **lemmas that do not exist**. Both are exactly what fine-tuning on
-  up-to-date Lean 4 proofs should fix, which makes them a useful baseline to measure against.
-- Retries with Lean's feedback almost double the solve count (9 → 17). So the retry loop
-  helps, but the base model's Lean knowledge is the real limit.
-- Solved problems are the easier ones (MATH-level algebra and number theory). Nothing at
-  AIME or IMO level is solved yet.
-
-For scale: specialized open provers in the same size class report much higher
-miniF2F-test scores (Goedel-Prover-V2-8B, DeepSeek-Prover-V2-7B). They are a reference
-point for what specialization can do, not a target this single-laptop project expects to
-match.
+Full breakdown: [`results/…/SUMMARY.md`](results/2026-10-04_baseline_qwen3-8b_valid_300s/SUMMARY.md).
+For context, specialized provers of similar size (DeepSeek-Prover-V2-7B,
+Goedel-Prover-V2-8B) score far higher. They show what specialization can achieve.
 
 ---
 
 ## Roadmap
 
-The detailed plan, with every step, its status and the reasoning behind the main
-decisions, is in **[ROADMAP.md](ROADMAP.md)**. In short:
+| Phase | | Status |
+|---|---|---|
+| **0 · Infrastructure** | Lean toolchain, parser, verification pipeline, sound evaluation | ✅ Aug–Sep 2026 |
+| **1 · Baseline → first fine-tune** | Zero-shot baseline ✅ · fix the evaluation protocol (pass@k, seed) · LoRA fine-tune with `mlx-lm` · before/after comparison | 🔄 **now** |
+| **2 · Expert iteration** | Retrain on the model's own Lean-verified proofs, round after round | ⏳ |
+| **3 · Reinforcement learning** | GRPO with Lean pass/fail as the reward | ⏳ stretch |
 
-- [x] Lean 4 + Mathlib toolchain, REPL interface, miniF2F problem parser
-- [x] Generate → verify pipeline with soundness checks (identity check, harness errors, `sorry`)
-- [x] Retry loop with Lean error feedback, crash/timeout recovery, resumable unattended runs
-- [x] **Zero-shot baseline on miniF2F-valid (256)**: 17 solved (6.6 %)
-- [ ] Fix the evaluation protocol (pass@k, seed) and audit the axioms of accepted proofs
-- [ ] One-time zero-shot score on miniF2F-test, before any training
-- [ ] **Phase 1:** LoRA fine-tune of Qwen3-8B with `mlx-lm`, then the before/after comparison
-- [ ] **Phase 2:** expert iteration
-- [ ] **Phase 3:** reinforcement learning (GRPO-style) with Lean pass/fail as the reward
+Every step, its status and the reasoning behind each decision are in **[ROADMAP.md](ROADMAP.md)**.
+
+<details>
+<summary><b>Timeline</b></summary>
+
+| Date | Milestone |
+|---|---|
+| 2026-08-25 | Scoping: Lean REPL as the verifier, DeepMind miniF2F fork as the benchmark, open-weight model as the target |
+| 2026-08-28 | Lean 4 + Mathlib toolchain built; Python ↔ Lean interface working |
+| 2026-09-17 | Problem parser complete (500/500); first Qwen3-8B proofs checked by Lean |
+| 2026-09-20 | Adversarial design review of the evaluation → soundness fixes |
+| 2026-09-21 | Retry loop with Lean feedback, crash recovery, unattended batch runner |
+| 2026-10-05 | **Zero-shot baseline complete: 17/256**, plus failure analysis |
+
+</details>
 
 ---
 
-## Repository layout
-
-```
-├── ROADMAP.md             the plan: phases, steps, status, decision log
-├── parser.py              miniF2F .lean file → {theorem name: statement}
-├── wrapper.py             Lean REPL subprocess: send / check / timeout / restart
-├── retry_loop.py          prompt, extract_proof, attempt, loop
-├── run_batch.py           unattended, resumable batch over a split
-├── scripts/               result analysis
-├── tests/                 offline unit tests (no Lean or model needed), run in CI
-├── results/               archived runs: per-theorem results, per-attempt logs, summaries
-├── data/                  dev_subset_25.json, a hand-picked set for quick iteration
-├── docs/                  adversarial design review, initial setup research
-├── notebooks/             exploration and one-off validation experiments
-├── miniF2F/               submodule: google-deepmind/miniF2F (problems, Lean project)
-└── repl_minif2f/          submodule: leanprover-community/repl, pinned to Lean v4.27.0
-```
-
 ## Running it
 
-Requirements: macOS on Apple Silicon (MLX), [elan](https://github.com/leanprover/elan),
-and Python ≥ 3.10.
+Requires macOS on Apple Silicon (MLX), [elan](https://github.com/leanprover/elan) and Python ≥ 3.10.
 
 ```bash
-git clone --recursive https://github.com/educob23/LEAN_AI.git
-cd LEAN_AI
-
-# Lean side: fetch the Mathlib cache and build the problem imports, then build the REPL
-(cd miniF2F && lake exe cache get && lake build)
-(cd repl_minif2f && lake build)
-
-# Python side
+git clone --recursive https://github.com/educob23/LEAN_AI.git && cd LEAN_AI
+(cd miniF2F && lake exe cache get && lake build)      # Mathlib + benchmark
+(cd repl_minif2f && lake build)                       # Lean REPL
 pip install -r requirements.txt
 
-# Unattended run over miniF2F-valid (resumable: re-running skips finished theorems)
-python run_batch.py --time-budget 300 --results valid_results.jsonl --attempts-log attempts.jsonl
-
-# Summarize a run
+python run_batch.py --time-budget 300 --results valid_results.jsonl   # resumable
 python scripts/summarize_results.py results/<run-dir>
-
-# Offline unit tests
-pytest -q tests
+pytest -q tests                                                         # offline, no Lean needed
 ```
 
-The model (`mlx-community/Qwen3-8B-4bit`, about 4.6 GB) is downloaded on first use.
+<details>
+<summary><b>Repository layout</b></summary>
+
+```
+├── parser.py, wrapper.py, retry_loop.py, run_batch.py   the pipeline
+├── scripts/        result analysis
+├── tests/          offline unit tests, run in CI
+├── results/        archived runs: per-problem results, every attempt, summaries
+├── docs/           adversarial design review, setup research
+├── data/           25-problem dev subset
+├── notebooks/      exploration and validation experiments
+├── miniF2F/        submodule: benchmark (google-deepmind/miniF2F)
+└── repl_minif2f/   submodule: Lean REPL, pinned to Lean v4.27.0
+```
+
+</details>
 
 ## Limitations
 
-- **Time budget, not pass@k.** The stopping rule is wall-clock time per theorem, so the
-  number of attempts depends on generation speed. Before the before/after comparison, the
-  protocol will move to a fixed number of attempts (pass@k), with time kept only as a cap.
-- **Possible contamination.** miniF2F is public and is probably in Qwen3's pretraining
-  data. This does not invalidate a same-model before/after comparison, but absolute numbers
-  should be read with that in mind.
-- **Benchmark variant.** The DeepMind fork's statements differ from the miniF2F variants
-  that most published provers report on, so the numbers are not directly comparable.
-- **No axiom audit yet.** The 17 accepted proofs contain no `sorry`, `axiom` or
-  `native_decide`. A systematic `#print axioms` check on every success is on the roadmap.
+- The baseline uses a **time budget** per problem. The before/after comparison will use a
+  fixed number of attempts (pass@k), which is more reproducible.
+- miniF2F is public and is probably in Qwen3's training data. This doesn't affect a
+  same-model before/after comparison, but absolute scores should be read with that in mind.
+- The DeepMind fork's statements differ from the variants most papers report on, so the
+  scores are not directly comparable to published ones.
 
 ## How this project is built
 
 I write the core logic myself: the parser, the Lean interface, the retry loop and the
 prompting. I used Claude (Anthropic) as a reviewer throughout, and it wrote parts of the
-reliability infrastructure (the batch runner and the REPL crash recovery). The design
-history, including an [adversarial design review](docs/design_review_2026_09_20.md) of the
-evaluation's soundness, is in [`docs/`](docs/).
-
-## Acknowledgements
-
-[miniF2F](https://github.com/google-deepmind/miniF2F) (Google DeepMind fork) ·
-[Lean REPL](https://github.com/leanprover-community/repl) ·
-[Mathlib](https://github.com/leanprover-community/mathlib4) ·
-[Qwen3](https://github.com/QwenLM/Qwen3) ·
-[MLX / mlx-lm](https://github.com/ml-explore/mlx-lm).
-The prompt format follows the one published with DeepSeek-Prover-V2 and Goedel-Prover-V2.
+reliability infrastructure (the batch runner and the REPL crash recovery).
 
 ---
 
-*Eduardo Cobos Fernandez* · [MIT License](LICENSE)
+Built on [miniF2F](https://github.com/google-deepmind/miniF2F) ·
+[Lean REPL](https://github.com/leanprover-community/repl) ·
+[Mathlib](https://github.com/leanprover-community/mathlib4) ·
+[Qwen3](https://github.com/QwenLM/Qwen3) · [MLX](https://github.com/ml-explore/mlx-lm).
+Prompt format from DeepSeek-Prover-V2 / Goedel-Prover-V2.
+
+**Eduardo Cobos Fernandez** · [MIT License](LICENSE)
