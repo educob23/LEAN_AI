@@ -195,11 +195,28 @@ pytest -q tests                                                         # offlin
 - The DeepMind fork's statements differ from the variants most papers report on, so the
   scores are not directly comparable to published ones.
 
-## How this project is built
+## Use of AI
 
-I write the core logic myself: the parser, the Lean interface, the retry loop and the
-prompting. I used Claude (Anthropic) as a reviewer throughout, and it wrote parts of the
-reliability infrastructure (the batch runner and the REPL crash recovery).
+This project is also how I learned its tools. It is my first time working with Lean 4,
+Mathlib, MLX and LLMs running locally. I learned them from scratch with documentation,
+papers, forums, and Claude (Anthropic) as a tutor.
+
+**The rule I set myself: I write the core code by hand.** That covers the problem parser,
+the Lean interface, the generate → verify → retry loop and the prompts, which are the parts
+I want to understand in depth. For these, Claude works as a teacher and code reviewer: it
+explains concepts and points out bugs, and I write the fixes.
+
+Where AI added the most value:
+
+- **An adversarial review of the evaluation**, written to try to break my scoring rather
+  than confirm it. It found two ways the score could be inflated: a model proving an easier
+  statement under the right name, and harness failures counted as passes. I fixed both; see
+  the [design review](docs/design_review_2026_09_20.md).
+- **Delegated tooling**, so that my time goes to the core. Claude wrote the code around the
+  pipeline: the unattended batch runner and the Lean crash recovery, the test suite and CI,
+  and the result-analysis script.
+- **This README** was structured with Claude's help, so the project stays readable while it
+  is still in progress.
 
 ---
 
