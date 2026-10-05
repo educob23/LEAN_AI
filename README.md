@@ -17,7 +17,7 @@ honest *before vs. after training* comparison on the same model and the same pro
 ## Where the project stands
 
 ![status](https://img.shields.io/badge/status-active%20development-brightgreen)
-![phase](https://img.shields.io/badge/current%20phase-1%3A%20baseline-blue)
+![phase](https://img.shields.io/badge/current%20phase-1%3A%20fine--tune%20prep-blue)
 ![updated](https://img.shields.io/badge/last%20update-2026--10--05-lightgrey)
 
 This is an active, ongoing project that follows a written plan, [ROADMAP.md](ROADMAP.md).
@@ -26,12 +26,12 @@ The table below and the timeline are updated at every milestone.
 | Phase | Goal | Status |
 |---|---|---|
 | **0 · Infrastructure** | Lean + Mathlib toolchain, REPL interface, parser, generate → verify → retry pipeline, sound evaluation | ✅ done (Aug–Sep 2026) |
-| **1 · Baseline + first fine-tune** | Measure Qwen3-8B zero-shot, then LoRA fine-tune and measure again with the same protocol | 🔄 **in progress**: baseline running, 186/256 problems done |
+| **1 · Baseline + first fine-tune** | Measure Qwen3-8B zero-shot, then LoRA fine-tune and measure again with the same protocol | 🔄 **in progress**: zero-shot baseline done (**17/256**), preparing the fine-tune |
 | **2 · Expert iteration** | Retrain on the model's own Lean-verified proofs, round after round | ⏳ planned |
 | **3 · Reinforcement learning** | GRPO with Lean pass/fail as the reward | ⏳ stretch goal |
 
-**Now:** zero-shot baseline of `Qwen3-8B` on the 256 miniF2F-valid problems
-(12 verified proofs so far).<br/>
+**Just done:** zero-shot baseline of `Qwen3-8B` on all 256 miniF2F-valid problems:
+**17 Lean-verified proofs (6.6 %)**.<br/>
 **Next:** fix the evaluation protocol for the before/after comparison (pass@k, fixed seed),
 take a one-time score on miniF2F-test, build the fine-tuning dataset, then the first LoRA
 fine-tune.
@@ -49,7 +49,7 @@ fine-tune.
 | 2026-09-21 | Retry loop with Lean error feedback; crash recovery; unattended batch runner; first 25-problem run |
 | 2026-10-03 | End-to-end smoke test of the hardened pipeline |
 | 2026-10-04 | **Full zero-shot baseline launched** on miniF2F-valid (256 problems) |
-| 2026-10-05 | Interim results: 12/186 solved; failure analysis (Lean 3 syntax, made-up lemma names) feeds the fine-tuning plan |
+| 2026-10-05 | **Baseline complete: 17/256 solved (6.6 %)** after ~22 h of compute and 2,656 model attempts. The failure analysis (Lean 3 syntax, made-up lemma names) feeds the fine-tuning plan |
 
 </details>
 
@@ -100,34 +100,46 @@ flowchart LR
 
 ## Results
 
-### Zero-shot baseline: Qwen3-8B on miniF2F-valid *(run in progress)*
+### Zero-shot baseline: Qwen3-8B on miniF2F-valid (256 problems)
 
 Setup: `mlx-community/Qwen3-8B-4bit`, non-thinking mode, up to 5,000 tokens per attempt,
 **300 s of wall-clock budget per theorem**, with retries that feed back Lean's errors.
 Problems: the [google-deepmind/miniF2F](https://github.com/google-deepmind/miniF2F) Lean 4
 statements (toolchain `v4.27.0`).
 
-| | Value (186 / 256 problems evaluated) |
+| | Value |
 |---|---|
-| **Solved, Lean-verified** | **12 / 186 (6.5 %)** |
-| Solved on the first attempt | 7 / 186 (3.8 %) |
-| Solved only thanks to error-feedback retries | 5 |
-| Model attempts made | 1,885 (median 10 per problem) |
+| **Solved, Lean-verified** | **17 / 256 (6.6 %)** |
+| Solved on the first attempt (pass@1) | 9 / 256 (3.5 %) |
+| Solved only thanks to error-feedback retries | 8 |
+| Model attempts made | 2,656 (median 10 per problem) |
+| Compute | ~22 h on one M1 Max |
 
-Full breakdown by source, outcome of each attempt and the list of solved problems:
+| Problem source | Solved |
+|---|---|
+| MATH, algebra | 6 / 71 (8.5 %) |
+| MATH, number theory | 7 / 67 (10.4 %) |
+| AMC 12 | 1 / 49 (2.0 %) |
+| AIME | 0 / 15 |
+| IMO | 0 / 20 |
+| Custom (algebra / number theory / induction) | 3 / 34 (8.8 %) |
+
+Outcome of each attempt, error analysis and the list of solved problems:
 [`results/2026-10-04_baseline_qwen3-8b_valid_300s/SUMMARY.md`](results/2026-10-04_baseline_qwen3-8b_valid_300s/SUMMARY.md).
 
-**What the logs already show.**
+**What the logs show.**
 
 - Lean rejects 98 % of attempts, but the model almost always produces a complete,
   well-formed answer: fewer than 1 % of attempts have no extractable proof. The problem is
   proof *quality*, not output format.
-- About half of the rejected attempts contain a syntax error. 12 % of all extracted proofs
+- About half of the rejected attempts contain a syntax error. 11 % of all extracted proofs
   use **Lean 3 idioms** (`begin … end`, `∑ x in s`), which current Lean 4 / Mathlib rejects.
-  About 38 % call **lemmas that do not exist**. Both are exactly what fine-tuning on
+  35 % of rejected attempts call **lemmas that do not exist**. Both are exactly what fine-tuning on
   up-to-date Lean 4 proofs should fix, which makes them a useful baseline to measure against.
-- Retries with Lean's feedback almost double the solve count (7 → 12). So the retry loop
+- Retries with Lean's feedback almost double the solve count (9 → 17). So the retry loop
   helps, but the base model's Lean knowledge is the real limit.
+- Solved problems are the easier ones (MATH-level algebra and number theory). Nothing at
+  AIME or IMO level is solved yet.
 
 For scale: specialized open provers in the same size class report much higher
 miniF2F-test scores (Goedel-Prover-V2-8B, DeepSeek-Prover-V2-7B). They are a reference
@@ -144,7 +156,7 @@ decisions, is in **[ROADMAP.md](ROADMAP.md)**. In short:
 - [x] Lean 4 + Mathlib toolchain, REPL interface, miniF2F problem parser
 - [x] Generate → verify pipeline with soundness checks (identity check, harness errors, `sorry`)
 - [x] Retry loop with Lean error feedback, crash/timeout recovery, resumable unattended runs
-- [ ] **Zero-shot baseline on miniF2F-valid (256)**, *running*
+- [x] **Zero-shot baseline on miniF2F-valid (256)**: 17 solved (6.6 %)
 - [ ] Fix the evaluation protocol (pass@k, seed) and audit the axioms of accepted proofs
 - [ ] One-time zero-shot score on miniF2F-test, before any training
 - [ ] **Phase 1:** LoRA fine-tune of Qwen3-8B with `mlx-lm`, then the before/after comparison
@@ -209,7 +221,7 @@ The model (`mlx-community/Qwen3-8B-4bit`, about 4.6 GB) is downloaded on first u
   should be read with that in mind.
 - **Benchmark variant.** The DeepMind fork's statements differ from the miniF2F variants
   that most published provers report on, so the numbers are not directly comparable.
-- **No axiom audit yet.** The 12 accepted proofs contain no `sorry`, `axiom` or
+- **No axiom audit yet.** The 17 accepted proofs contain no `sorry`, `axiom` or
   `native_decide`. A systematic `#print axioms` check on every success is on the roadmap.
 
 ## How this project is built

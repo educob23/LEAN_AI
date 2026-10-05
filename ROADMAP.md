@@ -38,7 +38,7 @@ problems, same protocol, and every proof checked by Lean.
 
 | Step | Status |
 |---|---|
-| **1a.** Zero-shot baseline on miniF2F-valid (256 problems, 300 s per problem) | 🔄 **running**: 186/256 done, 12 solved |
+| **1a.** Zero-shot baseline on miniF2F-valid (256 problems, 300 s per problem) | ✅ **done** (2026-10-05): **17/256 solved (6.6 %)**, 9 on the first attempt ([summary](results/2026-10-04_baseline_qwen3-8b_valid_300s/SUMMARY.md)) |
 | **1b.** Fix the evaluation protocol for the before/after comparison: a fixed number of attempts (pass@k) instead of a time budget, a fixed random seed, and a thinking-mode on/off comparison on the 25-problem dev subset | ⏳ next |
 | **1c.** Axiom audit of every accepted proof (`#print axioms`) | ⏳ |
 | **1d.** One-time zero-shot score on miniF2F-test, before any training | ⏳ |
@@ -46,9 +46,9 @@ problems, same protocol, and every proof checked by Lean.
 | **1f.** LoRA fine-tune of Qwen3-8B with `mlx-lm` on the M1 Max | ⏳ |
 | **1g.** Re-evaluate with the exact same protocol and publish the before/after comparison | ⏳ |
 
-**What the baseline already says about 1e.** The model almost always produces a
-well-formed answer, but Lean rejects 98 % of attempts. 12 % of the proofs use Lean 3
-syntax, and 38 % of the rejections call lemmas that don't exist (details in
+**What the baseline says about 1e.** The model almost always produces a
+well-formed answer, but Lean rejects 98 % of attempts. 11 % of the proofs use Lean 3
+syntax, and 35 % of the rejections call lemmas that don't exist (details in
 [results](results/2026-10-04_baseline_qwen3-8b_valid_300s/SUMMARY.md)). So the fine-tuning
 data has to be current Lean 4 / Mathlib: these are knowledge errors, not formatting errors.
 
@@ -81,6 +81,6 @@ hardest to get stable.
 | 2026-09 | `Qwen3-8B` (instruct, 4-bit, MLX) | Strong math and code priors (the base of Goedel-Prover-V2-8B); fits in 32 GB; instruct avoids formatting problems on a first fine-tune |
 | 2026-09 | Baseline = the same model, zero-shot | Gives a before/after difference that is entirely attributable to my training |
 | 2026-09-20 | Identity check on every candidate proof | The model could otherwise "prove" an easier statement under the right name |
-| 2026-09-21 | Lean error feedback in a multi-turn retry loop | Lean's error messages tell the model exactly what is wrong. Confirmed by the baseline so far: 7 → 12 solved with retries |
+| 2026-09-21 | Lean error feedback in a multi-turn retry loop | Lean's error messages tell the model exactly what is wrong. Confirmed by the baseline: 9 → 17 solved with retries |
 
 Full design history: [`docs/`](docs/).

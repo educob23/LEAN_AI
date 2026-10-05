@@ -5,7 +5,7 @@ One folder per run. Each one holds the raw logs written by `run_batch.py` and a
 
 | Run | Model / setting | Theorems | Solved | Notes |
 |---|---|---|---|---|
-| [`2026-10-04_baseline_qwen3-8b_valid_300s`](2026-10-04_baseline_qwen3-8b_valid_300s/SUMMARY.md) | Qwen3-8B zero-shot, 300 s / theorem | 186 / 256 *(in progress)* | 12 | **The reference baseline.** Snapshot taken 2026-10-05 while the run continues. |
+| [`2026-10-04_baseline_qwen3-8b_valid_300s`](2026-10-04_baseline_qwen3-8b_valid_300s/SUMMARY.md) | Qwen3-8B zero-shot, 300 s / theorem | 256 / 256 | 17 | **The reference baseline.** Completed 2026-10-05, ~22 h of compute. |
 | [`2026-10-03_smoke_test`](2026-10-03_smoke_test/SUMMARY.md) | Qwen3-8B zero-shot | 5 | 1 | End-to-end check of the hardened pipeline before the full run. |
 | [`2026-09-21_valid_600s_partial`](2026-09-21_valid_600s_partial/SUMMARY.md) | Qwen3-8B zero-shot, 600 s / theorem | 25 / 256 | 2 | First real run, stopped after 25 problems. |
 
@@ -24,6 +24,9 @@ One folder per run. Each one holds the raw logs written by `run_batch.py` and a
 `raw_text` (full model output), `proof` (extracted Lean code), `answer` (raw Lean REPL
 response), `check` (`1` verified · `-1` rejected · `0` contains `sorry` · `null` no code
 block), `elapsed_s`, `ts`.
+
+`run_log.txt.gz` (when present) is the console output of `run_batch.py`, including every raw
+Lean response printed during the run.
 
 ## Archiving a run
 
